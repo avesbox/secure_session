@@ -5,11 +5,9 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart';
 
 const int saltLength = 16;
-
 
 final class CookieOptions {
   const CookieOptions({
@@ -54,25 +52,29 @@ class SecureSession {
     if (keyPath != null && salt != null) {
       throw ArgumentError('Salt is only used with secret');
     }
-    if (secret != null && salt == null) {
-      throw ArgumentError('Salt must be provided with secret');
-    }
     if (keyPath != null) {
       final filePath = File(keyPath);
       if (!filePath.existsSync()) {
         throw ArgumentError('Key file does not exist');
       }
       _key = filePath.readAsStringSync();
-      print(_key);
     }
-    if(salt != null && (salt!.length != saltLength)) {
-      throw ArgumentError('Salt must be $saltLength characters long');
+    if(salt != null) {
+      if((salt!.length != saltLength)) {
+        throw ArgumentError('Salt must be $saltLength characters long');
+      }
+      if(Uint8List.fromList(secret!.codeUnits).length != saltLength) {
+        throw ArgumentError('Secret must be encoded in UTF-8');
+      }
     }
     if (secret != null) {
-      if (secret!.length != saltLength * 2) {
-        throw ArgumentError('Secret must be ${saltLength * 2} characters long');
+      if (secret!.length != saltLength) {
+        throw ArgumentError('Secret must be $saltLength characters long');
       }
-      _key = sha256.convert('$secret$salt'.codeUnits).toString().substring(0, 32);
+      if(Uint8List.fromList(secret!.codeUnits).length != saltLength) {
+        throw ArgumentError('Secret must be encoded in UTF-8');
+      }
+      _key = secret!;
     }
   }
 
@@ -111,10 +113,9 @@ class SecureSession {
     if(cipher == 0 || nonce.length < 16) {
       return null;
     }
-    final iv = IV.fromBase64(nonceB64);
-    final encrypter = Encrypter(AES(Key.fromUtf8(_key!)));
-    final decrypted = encrypter.decrypt(Encrypted.from64(cipher), iv: iv);
-    return decrypted;
+    final encrypter = Fernet(Key.fromUtf8(_key!+utf8.decode(nonce)));
+    final decrypted = encrypter.decrypt(Encrypted.from64(cipher), ttl: _data[key]!.ttl);
+    return utf8.decode(decrypted);
   }
 
   operator []=(String key, dynamic value) {
@@ -122,11 +123,10 @@ class SecureSession {
       throw ArgumentError('Value must be a string or a json serializable object');
     }
     final msg = value is String ? value : jsonEncode(value);
-    final nonce = _generateNonce();
-    final iv = IV.fromBase64(nonce);
-    final encrypter = Encrypter(AES(Key.fromUtf8(_key!)));
-    final cipher = encrypter.encrypt(msg, iv: iv);
-    _data[key] = SessionValue('${cipher.base64};${iv.base64}');
+    final nonce = salt ?? _generateNonce();
+    final encrypter = Fernet(Key.fromUtf8(_key!+nonce));
+    final cipher = encrypter.encrypt(utf8.encode(msg));
+    _data[key] = SessionValue('${cipher.base64};${base64Url.encode(nonce.codeUnits)}', expiry.inMilliseconds);
   }
 
   String _generateNonce() {
@@ -142,12 +142,12 @@ class SecureSession {
 
 class SessionValue {
 
-  SessionValue(this.value);
+  SessionValue(this.value, this.ttl);
 
-  final dynamic value;
-
-  final DateTime timestamp = DateTime.now();
+  dynamic value;
 
   bool hasChanged = false;
+
+  int ttl;
 
 }
