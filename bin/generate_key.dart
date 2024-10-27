@@ -1,14 +1,13 @@
-
 import 'dart:io';
 import 'dart:math';
 
 Future<void> main(List<String> arguments) async {
   final stopwatch = Stopwatch()..start();
-  if(arguments.length != 1) {
-    print('Usage: dart secure_session:generate_key <file_name>');
+  if (arguments.length != 1) {
+    print('Usage: dart run secure_session:generate_key <file_name>');
     exit(1);
   }
-  final secretKey = _randomHexString(32);
+  final secretKey = _randomHexString(8);
   final file = File(arguments.first);
   await file.writeAsString(secretKey);
   print('Generated secret key in ${stopwatch.elapsedMilliseconds}ms');
