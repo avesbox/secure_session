@@ -258,6 +258,11 @@ class SecureSession {
     }
     return base64Url.encode(nonce);
   }
+
+  /// Clears the session
+  void clear() {
+    _data.clear();
+  }
 }
 
 class SessionValue {

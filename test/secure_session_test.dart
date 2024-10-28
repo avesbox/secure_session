@@ -108,5 +108,25 @@ void main() {
       expect(session.read(), null);
       expect(session.read('test-session'), value);
     });
+
+    test(
+      'if a value is passed and the clear method is called then the read method should return null',
+      () {
+        var generatedSalt = '';
+        for (int i = 0; i < 16; i++) {
+          generatedSalt += String.fromCharCode(Random().nextInt(128));
+        }
+        var generatedSecret = '';
+        for (int i = 0; i < 16; i++) {
+          generatedSecret += String.fromCharCode(Random().nextInt(128));
+        }
+        final session =
+            SecureSession(secret: generatedSecret, salt: generatedSalt);
+        final value = 'test-value';
+        session.write(value);
+        session.clear();
+        expect(session.read(), null);
+      }
+    );
   });
 }
