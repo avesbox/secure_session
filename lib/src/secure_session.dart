@@ -193,15 +193,28 @@ class SecureSession {
     _data[name] = encode(value, option);
   }
 
-  /// Reads a value from the session
+  /// Reads a value from the session and decrypts it
   ///
   /// [sessionName] is the name of the session to read from (default is the value of [defaultSessionName])
   /// Returns the value of the session or null if the session does not exist or has expired
   String? read(String sessionName, [SessionOptions? opts]) {
-    final option = options
+    final option = opts ?? options
             .where((e) => (e.cookieName ?? e.defaultSessionName) == sessionName)
-            .firstOrNull ??
-        opts;
+            .firstOrNull;
+    if (option == null) {
+      throw ArgumentError('Session not found');
+    }
+    final session = get(sessionName, option);
+    return decode(session!.value, option, session.hasChanged);
+  }
+
+  /// Gets a session 
+  /// 
+  /// It returns a [SessionValue] object
+  SessionValue? get(String sessionName, [SessionOptions? opts]) {
+    final option = opts ?? options
+            .where((e) => (e.cookieName ?? e.defaultSessionName) == sessionName)
+            .firstOrNull;
     if (option == null) {
       throw ArgumentError('Session not found');
     }
@@ -212,7 +225,7 @@ class SecureSession {
     if (_data[name]!.deleted) {
       return null;
     }
-    return decode(_data[name]!.value, option, _data[name]!.hasChanged);
+    return _data[name];
   }
 
   /// Deletes a session
@@ -306,7 +319,7 @@ class SecureSession {
     final nonce = options.salt ?? _generateNonce();
     final encrypter = Fernet(Key.fromUtf8(options.key + nonce));
     final ts = DateTime.now().millisecondsSinceEpoch;
-    final cipher = encrypter.encrypt(utf8.encode('$msg\$$ts'));
+    final cipher = encrypter.encrypt(utf8.encode('$msg${options.separator}$ts'));
     return SessionValue(
         '${cipher.base64};${base64Url.encode(nonce.codeUnits)}', ts, options);
   }

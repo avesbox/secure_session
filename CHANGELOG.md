@@ -17,3 +17,7 @@
 ## 1.0.3
 
 - fix: add src folder and exports correctly.
+
+## 1.0.4
+
+- feat: add `get` method to get the raw session data.
