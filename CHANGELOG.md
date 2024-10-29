@@ -13,3 +13,7 @@
 - Add the `delete` method.
 - Add the `regenerate` method.
 - Add the possibility to set multiple session options.
+
+## 1.0.3
+
+- fix: add src folder and exports correctly.
