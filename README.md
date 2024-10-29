@@ -15,15 +15,18 @@ import 'package:secure_session/secure_session.dart';
 
 void main() {
   final session = SecureSession(
-    secret: 'secret',
-    cookieName: 'cookie',
+    options: SessionOptions(
+      secret: 'secret',
+      salt: 'salt',
+      cookieName: 'cookie',
+    )
   );
 
   final data = {'key': 'value'};
 
-  session.write(data);
+  session.write(data, 'cookie');
 
-  final result = session.read();
+  final result = session.read('cookie');
 
   print(result); // {key: value}
 }

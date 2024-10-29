@@ -1,6 +1,6 @@
 name: secure_session
-description: A secure session manager for Dart.
-version: 1.0.1
+description: Secure stateless cookie session for Dart. It is a simple and secure way to manage user sessions in web applications.
+version: 1.0.2
 repository: https://github.com/avesbox/secure_session
 topics:
   - secure

@@ -9,27 +9,42 @@ void main() {
     test(
         'if no secret and keyfile provided then an $ArgumentError should be thrown',
         () {
-      expect(() => SecureSession(), throwsA(isA<ArgumentError>()));
+      expect(() => SecureSession(options: []), throwsA(isA<ArgumentError>()));
     });
     test(
         'if a keyfile and salt are provided then a $ArgumentError should be thrown',
         () {
-      expect(() => SecureSession(keyPath: 'keyfile', salt: 'test-salt'),
+      expect(
+          () => SecureSession(options: [
+                SessionOptions(
+                  keyPath: 'test/keyfile',
+                  salt: 'salt',
+                )
+              ]),
           throwsA(isA<ArgumentError>()));
     });
     test(
         'if a secret and no salt are provided then a $ArgumentError should be thrown',
         () {
       expect(
-          () => SecureSession(secret: 'secret'), throwsA(isA<ArgumentError>()));
+          () => SecureSession(options: [
+                SessionOptions(
+                  secret: 'secret',
+                )
+              ]),
+          throwsA(isA<ArgumentError>()));
     });
     test('if a keyfile is provided then the key should be read from the file',
         () {
       final keyPath = 'test/keyfile';
       final keyFile = File(keyPath);
       keyFile.writeAsStringSync('test-key');
-      final session = SecureSession(keyPath: keyPath);
-      expect(session.key, 'test-key');
+      final session = SecureSession(options: [
+        SessionOptions(
+          keyPath: keyPath,
+        )
+      ]);
+      expect(session.options.first.key, 'test-key');
       keyFile.deleteSync();
     });
     test(
@@ -37,15 +52,22 @@ void main() {
         () {
       final keyPath = 'test/keyfile-error';
       expect(
-          () => SecureSession(keyPath: keyPath), throwsA(isA<ArgumentError>()));
+          () => SecureSession(options: [
+                SessionOptions(
+                  keyPath: keyPath,
+                )
+              ]),
+          throwsA(isA<ArgumentError>()));
     });
     test(
         'if a salt and a secret are provided but the salt is shorter than 16 characters then a $ArgumentError should be thrown',
         () {
       expect(
-          () => SecureSession(
-              salt: 'short-salt',
-              secret: 'daudhaiuadhiuauihdhuiadhuiadhuiahuidahui'),
+          () => SecureSession(options: [
+                SessionOptions(
+                    salt: 'short-salt',
+                    secret: 'daudhaiuadhiuauihdhuiadhuiadhuiahuidahui')
+              ]),
           throwsA(isA<ArgumentError>()));
     });
     test(
@@ -55,7 +77,10 @@ void main() {
       for (int i = 0; i < 16; i++) {
         generatedSalt += String.fromCharCode(Random().nextInt(128));
       }
-      expect(() => SecureSession(secret: 'secret', salt: generatedSalt),
+      expect(
+          () => SecureSession(options: [
+                SessionOptions(salt: generatedSalt, secret: 'short-secret')
+              ]),
           throwsA(isA<ArgumentError>()));
     });
     test(
@@ -69,9 +94,10 @@ void main() {
       for (int i = 0; i < 16; i++) {
         generatedSecret += String.fromCharCode(Random().nextInt(256));
       }
-      final session =
-          SecureSession(secret: generatedSecret, salt: generatedSalt);
-      expect(session.key, generatedSecret);
+      final session = SecureSession(options: [
+        SessionOptions(salt: generatedSalt, secret: generatedSecret)
+      ]);
+      expect(session.options.first.key, generatedSecret);
     });
     test(
         'if a value is passed to the secure session it should be encrypted and saved as a SessionValue',
@@ -84,11 +110,12 @@ void main() {
       for (int i = 0; i < 16; i++) {
         generatedSecret += String.fromCharCode(Random().nextInt(128));
       }
-      final session =
-          SecureSession(secret: generatedSecret, salt: generatedSalt);
+      final session = SecureSession(options: [
+        SessionOptions(secret: generatedSecret, salt: generatedSalt)
+      ]);
       final value = 'test-value';
-      session.write(value);
-      expect(session.read(), value);
+      session.write(value, 'session');
+      expect(session.read('session'), value);
     });
     test(
         'if a value is passed to a session different from the default session it should be encrypted and saved as a SessionValue',
@@ -101,32 +128,35 @@ void main() {
       for (int i = 0; i < 16; i++) {
         generatedSecret += String.fromCharCode(Random().nextInt(128));
       }
-      final session =
-          SecureSession(secret: generatedSecret, salt: generatedSalt);
+      final session = SecureSession(options: [
+        SessionOptions(
+            secret: generatedSecret,
+            salt: generatedSalt,
+            cookieName: 'test-session')
+      ]);
       final value = 'test-value';
-      session.write(sessionName: 'test-session', value);
-      expect(session.read(), null);
+      session.write('test-session', value);
       expect(session.read('test-session'), value);
     });
 
     test(
-      'if a value is passed and the clear method is called then the read method should return null',
-      () {
-        var generatedSalt = '';
-        for (int i = 0; i < 16; i++) {
-          generatedSalt += String.fromCharCode(Random().nextInt(128));
-        }
-        var generatedSecret = '';
-        for (int i = 0; i < 16; i++) {
-          generatedSecret += String.fromCharCode(Random().nextInt(128));
-        }
-        final session =
-            SecureSession(secret: generatedSecret, salt: generatedSalt);
-        final value = 'test-value';
-        session.write(value);
-        session.clear();
-        expect(session.read(), null);
+        'if a value is passed and the clear method is called then the read method should return null',
+        () {
+      var generatedSalt = '';
+      for (int i = 0; i < 16; i++) {
+        generatedSalt += String.fromCharCode(Random().nextInt(128));
       }
-    );
+      var generatedSecret = '';
+      for (int i = 0; i < 16; i++) {
+        generatedSecret += String.fromCharCode(Random().nextInt(128));
+      }
+      final session = SecureSession(options: [
+        SessionOptions(secret: generatedSecret, salt: generatedSalt)
+      ]);
+      final value = 'test-value';
+      session.write(value, 'session');
+      session.clear();
+      expect(session.read('session'), null);
+    });
   });
 }

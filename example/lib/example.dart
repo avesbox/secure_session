@@ -7,10 +7,21 @@ Future<void> main(List<String> arguments) async {
   print('Listening on localhost:${server.port}');
 
   await for (HttpRequest request in server) {
-    final secureSession = SecureSession(keyPath: 'test_key');
-    secureSession.init(request.cookies, request.session);
-    secureSession.write('John Doe');
-    request.response.write(secureSession.read());
+    final secureSession = SecureSession(options: [
+      SessionOptions(
+        cookieName: 'session',
+        defaultSessionName: 'session',
+        expiry: const Duration(days: 1),
+        keyPath: 'example/assets/rsa_key.pem',
+        separator: r';',
+        secret: 'my secret',
+        cookieOptions: CookieOptions(),
+        salt: 'salt',
+      ),
+    ]);
+    secureSession.init(request.cookies);
+    secureSession.write('John Doe', 'session');
+    request.response.write(secureSession.read('session'));
     await request.response.close();
   }
 }
