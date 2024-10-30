@@ -65,6 +65,11 @@ final class SessionOptions {
   /// The name of the cookie
   final String? cookieName;
 
+  /// If it should full encode the session value in base64
+  /// 
+  /// By default it is true
+  final bool fullEncode;
+
   /// The path to the key
   final String? keyPath;
 
@@ -79,6 +84,7 @@ final class SessionOptions {
     this.defaultSessionName = 'session',
     this.expiry = const Duration(days: 1),
     this.keyPath,
+    this.fullEncode = true,
     this.separator = r';',
     this.secret,
     this.cookieOptions = const CookieOptions(),
@@ -155,14 +161,8 @@ class SecureSession {
       if (sessionCookie != null) {
         final sessionData = sessionCookie.value;
         final sessionValue = decode(sessionData, option, false);
-        if (sessionValue != null && sessionValue.isNotEmpty) {
-          final split = sessionValue.split(option.separator);
-          final value = split[0];
-          final ttl =
-              DateTime.fromMillisecondsSinceEpoch(int.tryParse(split[1]) ?? 0)
-                  .difference(DateTime.now())
-                  .inMilliseconds;
-          _data[cookieName] = SessionValue(value, ttl, option);
+        if (sessionValue != null) {
+          _data[cookieName] = sessionValue;
         }
       }
     }
@@ -189,6 +189,9 @@ class SecureSession {
     }
     if (_data.containsKey(name)) {
       _data[name]!.deleted = false;
+      _data[name]!.hasChanged = true;
+      _data[name] = encode(value, option, _data[name]);
+      return;
     }
     _data[name] = encode(value, option);
   }
@@ -205,7 +208,7 @@ class SecureSession {
       throw ArgumentError('Session not found');
     }
     final session = get(sessionName, option);
-    return decode(session!.value, option, session.hasChanged);
+    return decode(session!.value, option, session.hasChanged)?.value;
   }
 
   /// Gets a session 
@@ -223,6 +226,13 @@ class SecureSession {
       return null;
     }
     if (_data[name]!.deleted) {
+      return null;
+    }
+    final ts = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(_data[name]!.ttl))
+        .inMilliseconds;
+    /// If the timestamp is greater than the expiry then return null
+    if (ts > option.expiry.inMilliseconds && !_data[name]!.hasChanged) {
       return null;
     }
     return _data[name];
@@ -264,9 +274,13 @@ class SecureSession {
   ///
   /// [value] is a string to decode
   /// Returns a [String] object
-  String? decode(String value, SessionOptions options, bool hasChanged) {
+  SessionValue? decode(String value, SessionOptions options, bool hasChanged) {
+    String normalizedValue = value;
+    if(options.fullEncode) {
+      normalizedValue = utf8.decode(base64.decode(value));
+    }
     /// Split the value into cipher and nonce
-    final splittedValue = value.split(options.separator);
+    final splittedValue = normalizedValue.split(options.separator);
 
     /// If the value does not contain a cipher and nonce then return an empty string
     if (splittedValue.length != 2) {
@@ -276,7 +290,7 @@ class SecureSession {
     /// Get the cipher and nonce
     final cipher = splittedValue[0];
     final nonceB64 = splittedValue[1];
-    final nonce = base64Url.decode(nonceB64);
+    final nonce = base64.decode(nonceB64);
     if (cipher.isEmpty || nonce.length < 16) {
       return null;
     }
@@ -301,7 +315,7 @@ class SecureSession {
     if (ts > options.expiry.inMilliseconds && !hasChanged) {
       return null;
     }
-    return payload;
+    return SessionValue(payload, ts, options);
   }
 
   /// Utility function to encode a value
@@ -311,17 +325,17 @@ class SecureSession {
   /// Throws an [ArgumentError] if the value already contains the separator
   ///
   /// The value is encrypted using the Fernet algorithm
-  SessionValue encode(dynamic value, SessionOptions options) {
+  SessionValue encode(dynamic value, SessionOptions options, [SessionValue? sessionValue]) {
     final msg = value is String ? value : jsonEncode(value);
     if (msg.contains(options.separator)) {
       throw ArgumentError('Value cannot contain the separator');
     }
     final nonce = options.salt ?? _generateNonce();
     final encrypter = Fernet(Key.fromUtf8(options.key + nonce));
-    final ts = DateTime.now().millisecondsSinceEpoch;
+    final ts = sessionValue != null && !sessionValue.hasChanged ? sessionValue.ttl : DateTime.now().millisecondsSinceEpoch;
     final cipher = encrypter.encrypt(utf8.encode('$msg${options.separator}$ts'));
     return SessionValue(
-        '${cipher.base64};${base64Url.encode(nonce.codeUnits)}', ts, options);
+        options.fullEncode ? base64.encode('${cipher.base64};${base64.encode(nonce.codeUnits)}'.codeUnits) : '${cipher.base64};${base64.encode(nonce.codeUnits)}', ts, options);
   }
 
   String _generateNonce() {
@@ -330,7 +344,7 @@ class SecureSession {
     for (var i = 0; i < nonce.length; i++) {
       nonce[i] = random.nextInt(256);
     }
-    return base64Url.encode(nonce);
+    return base64.encode(nonce);
   }
 
   /// Clears the session
