@@ -66,7 +66,7 @@ final class SessionOptions {
   final String? cookieName;
 
   /// If it should full encode the session value in base64
-  /// 
+  ///
   /// By default it is true
   final bool fullEncode;
 
@@ -201,7 +201,8 @@ class SecureSession {
   /// [sessionName] is the name of the session to read from (default is the value of [defaultSessionName])
   /// Returns the value of the session or null if the session does not exist or has expired
   String? read(String sessionName, [SessionOptions? opts]) {
-    final option = opts ?? options
+    final option = opts ??
+        options
             .where((e) => (e.cookieName ?? e.defaultSessionName) == sessionName)
             .firstOrNull;
     if (option == null) {
@@ -211,11 +212,12 @@ class SecureSession {
     return decode(session!.value, option, session.hasChanged)?.value;
   }
 
-  /// Gets a session 
-  /// 
+  /// Gets a session
+  ///
   /// It returns a [SessionValue] object
   SessionValue? get(String sessionName, [SessionOptions? opts]) {
-    final option = opts ?? options
+    final option = opts ??
+        options
             .where((e) => (e.cookieName ?? e.defaultSessionName) == sessionName)
             .firstOrNull;
     if (option == null) {
@@ -231,6 +233,7 @@ class SecureSession {
     final ts = DateTime.now()
         .difference(DateTime.fromMillisecondsSinceEpoch(_data[name]!.ttl))
         .inMilliseconds;
+
     /// If the timestamp is greater than the expiry then return null
     if (ts > option.expiry.inMilliseconds && !_data[name]!.hasChanged) {
       return null;
@@ -276,9 +279,10 @@ class SecureSession {
   /// Returns a [String] object
   SessionValue? decode(String value, SessionOptions options, bool hasChanged) {
     String normalizedValue = value;
-    if(options.fullEncode) {
+    if (options.fullEncode) {
       normalizedValue = utf8.decode(base64.decode(value));
     }
+
     /// Split the value into cipher and nonce
     final splittedValue = normalizedValue.split(options.separator);
 
@@ -325,17 +329,26 @@ class SecureSession {
   /// Throws an [ArgumentError] if the value already contains the separator
   ///
   /// The value is encrypted using the Fernet algorithm
-  SessionValue encode(dynamic value, SessionOptions options, [SessionValue? sessionValue]) {
+  SessionValue encode(dynamic value, SessionOptions options,
+      [SessionValue? sessionValue]) {
     final msg = value is String ? value : jsonEncode(value);
     if (msg.contains(options.separator)) {
       throw ArgumentError('Value cannot contain the separator');
     }
     final nonce = options.salt ?? _generateNonce();
     final encrypter = Fernet(Key.fromUtf8(options.key + nonce));
-    final ts = sessionValue != null && !sessionValue.hasChanged ? sessionValue.ttl : DateTime.now().millisecondsSinceEpoch;
-    final cipher = encrypter.encrypt(utf8.encode('$msg${options.separator}$ts'));
+    final ts = sessionValue != null && !sessionValue.hasChanged
+        ? sessionValue.ttl
+        : DateTime.now().millisecondsSinceEpoch;
+    final cipher =
+        encrypter.encrypt(utf8.encode('$msg${options.separator}$ts'));
     return SessionValue(
-        options.fullEncode ? base64.encode('${cipher.base64};${base64.encode(nonce.codeUnits)}'.codeUnits) : '${cipher.base64};${base64.encode(nonce.codeUnits)}', ts, options);
+        options.fullEncode
+            ? base64.encode(
+                '${cipher.base64};${base64.encode(nonce.codeUnits)}'.codeUnits)
+            : '${cipher.base64};${base64.encode(nonce.codeUnits)}',
+        ts,
+        options);
   }
 
   String _generateNonce() {

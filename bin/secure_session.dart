@@ -23,29 +23,30 @@ void main(List<String> arguments) async {
 
   secureSession.write('John Doe', 'session');
   await for (HttpRequest request in server) {
-    secureSession.init(request.cookies.where((e) => e.name != 'DARTSSID').toList());
+    secureSession
+        .init(request.cookies.where((e) => e.name != 'DARTSSID').toList());
     request.response
       ..statusCode = HttpStatus.ok
       ..headers.contentType = ContentType.text;
     for (final option in secureSession.options) {
-      final value = secureSession.get(option.cookieName ?? option.defaultSessionName)?.value;
-      if(value != null) {
-        request.response.cookies.add(
-          Cookie(
-            option.cookieName ?? option.defaultSessionName,
-            value.toString(),
-          )..maxAge = option.expiry.inSeconds
+      final value = secureSession
+          .get(option.cookieName ?? option.defaultSessionName)
+          ?.value;
+      if (value != null) {
+        request.response.cookies.add(Cookie(
+          option.cookieName ?? option.defaultSessionName,
+          value.toString(),
+        )
+          ..maxAge = option.expiry.inSeconds
           ..expires = DateTime.now().add(option.expiry)
           ..httpOnly = option.cookieOptions.httpOnly
           ..secure = option.cookieOptions.secure
           ..sameSite = option.cookieOptions.sameSite
           ..domain = option.cookieOptions.domain
-          ..path = option.cookieOptions.path
-        );
+          ..path = option.cookieOptions.path);
       }
     }
     request.response.write('Hello, World!');
     await request.response.close();
   }
-
 }
