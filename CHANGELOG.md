@@ -21,3 +21,7 @@
 ## 1.0.4
 
 - feat: add `get` method to get the raw session data.
+
+## 1.0.5
+
+- fix: improve usage and add full encoding capabilities for dart httpserver
